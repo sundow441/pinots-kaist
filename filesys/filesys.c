@@ -4,41 +4,14 @@
 #include <string.h>
 #include "filesys/file.h"
 #include "filesys/free-map.h"
-#include "include/filesys/inode.h"
+#include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "devices/disk.h"
-#include <stdlib.h>
+
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
 
-/* Formats the file system. */
-static void do_format (void) {
-	printf ("Formatting file system...");
-
-#ifdef EFILESYS
-	/* Create FAT and save it to the disk. */
-	fat_create ();
-
-    // '.' '..' 파일 추가
-    if (!dir_create(ROOT_DIR_SECTOR, 16)) {
-        PANIC("root directory creation failed");
-    }
-        
-    struct dir* root_dir = dir_open_root();
-    dir_add(root_dir, ".", ROOT_DIR_SECTOR);
-    dir_add(root_dir, "..", ROOT_DIR_SECTOR);
-    dir_close(root_dir);
-
-	fat_close ();
-#else
-	free_map_create ();
-	if (!dir_create (ROOT_DIR_SECTOR, 16))
-		PANIC ("root directory creation failed");
-	free_map_close ();
-#endif
-
-	printf ("done.\n");
-}
+static void do_format (void);
 
 /* Initializes the file system module.
  * If FORMAT is true, reformats the file system. */
@@ -98,6 +71,7 @@ filesys_create (const char *name, off_t initial_size) {
 
 	return success;
 }
+
 /* Opens the file with the given NAME.
  * Returns the new file if successful or a null pointer
  * otherwise.
@@ -126,8 +100,23 @@ filesys_remove (const char *name) {
 	dir_close (dir);
 
 	return success;
-
-    #endif
 }
 
+/* Formats the file system. */
+static void
+do_format (void) {
+	printf ("Formatting file system...");
 
+#ifdef EFILESYS
+	/* Create FAT and save it to the disk. */
+	fat_create ();
+	fat_close ();
+#else
+	free_map_create ();
+	if (!dir_create (ROOT_DIR_SECTOR, 16))
+		PANIC ("root directory creation failed");
+	free_map_close ();
+#endif
+
+	printf ("done.\n");
+}

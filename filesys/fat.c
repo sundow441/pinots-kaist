@@ -3,7 +3,6 @@
 #include "filesys/filesys.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
-#include "lib/kernel/bitmap.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -28,12 +27,9 @@ struct fat_fs {
 };
 
 static struct fat_fs *fat_fs;
-struct bitmap *fat_bitmap; // 0 - empty, 1 - filled
-
 
 void fat_boot_create (void);
 void fat_fs_init (void);
-cluster_t get_empty_cluster();
 
 void
 fat_init (void) {
@@ -53,9 +49,6 @@ fat_init (void) {
 	if (fat_fs->bs.magic != FAT_MAGIC)
 		fat_boot_create ();
 	fat_fs_init ();
-
-	// project 4
-	fat_bitmap = bitmap_create(fat_fs->fat_length);
 }
 
 void
@@ -157,10 +150,11 @@ fat_boot_create (void) {
 	};
 }
 
-void fat_fs_init (void) {
+void
+fat_fs_init (void) {
 	/* TODO: Your code goes here. */
-	fat_fs->fat_length = fat_fs->bs.total_sectors / SECTORS_PER_CLUSTER ;//sectors_per_cluster를 바꾸면 수정 
-	fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
+	fat_fs->fat_length = fat_fs->bs.total_sectors * SECTORS_PER_CLUSTER;
+	fat_fs->data_start = fat_fs->data_start;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -172,41 +166,37 @@ void fat_fs_init (void) {
  * Returns 0 if fails to allocate a new cluster. */
 cluster_t fat_create_chain (cluster_t clst) {
 	/* TODO: Your code goes here. */
-	cluster_t i = 2;
-	while (fat_get(i) != 0 && i < fat_fs->fat_length) {
-		++i;
+	int index = 2;
+	while (fat_fs->fat[index] != 0 && index < fat_fs->fat_length)
+	{
+		index++;
 	}
-	
-	if (i == fat_fs->fat_length) {	// FAT가 가득 찼다면
-		return 0;
+	fat_put(index,EOChain);
+	if(clst == 0){
+		return index;
 	}
-	
-	fat_put(i, EOChain);	// fat안의 값 업데이트
-
-	if (clst == 0) {	// 새로운 체인 생성
-		return i;
-	}
-
-	while(fat_get(clst) != EOChain) {
+	while (fat_get(clst) != EOChain)
+	{
 		clst = fat_get(clst);
 	}
-
-	fat_put(clst, i);
-	return i;
+	fat_put(clst,index);
+	return index;
 }
-
 
 /* Remove the chain of clusters starting from CLST.
  * If PCLST is 0, assume CLST as the start of the chain. */
 void
 fat_remove_chain (cluster_t clst, cluster_t pclst) {
 	/* TODO: Your code goes here. */
-	while(clst != EOChain){
+	while (fat_get(clst) != EOChain)
+	{
+		int tmp = clst;
 		clst = fat_get(clst);
+		fat_put(tmp,0);
 	}
-	if(pclst != 0){
-		fat_put(pclst,EOChain);
-	}
+	fat_put(clst,0);
+	fat_put(pclst,EOChain);
+	ASSERT(fat_get(pclst) == EOChain);
 }
 
 /* Update a value in the FAT table. */
@@ -222,7 +212,6 @@ cluster_t
 fat_get (cluster_t clst) {
 	/* TODO: Your code goes here. */
 	ASSERT(clst >= 1);
-	ASSERT(clst < fat_fs->fat_length);
 	return fat_fs->fat[clst];
 }
 
@@ -230,6 +219,5 @@ fat_get (cluster_t clst) {
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
-	ASSERT(clst >= 1);
-	return fat_fs->data_start + clst * SECTORS_PER_CLUSTER;
+	return fat_fs->data_start + (clst * SECTORS_PER_CLUSTER);
 }

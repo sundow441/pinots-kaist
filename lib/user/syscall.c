@@ -1,9 +1,6 @@
 #include <syscall.h>
 #include <stdint.h>
 #include "../syscall-nr.h"
-#include "filesys/fat.h"
-#include <stdlib.h>
-#include "filesys/filesys.h"
 
 __attribute__((always_inline))
 static __inline int64_t syscall (uint64_t num_, uint64_t a1_, uint64_t a2_,
