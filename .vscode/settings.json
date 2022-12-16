@@ -18,6 +18,7 @@
         "directory.h": "c",
         "filesys.h": "c",
         "off_t.h": "c",
-        "inode.h": "c"
+        "inode.h": "c",
+        "fat.h": "c"
     }
 }
